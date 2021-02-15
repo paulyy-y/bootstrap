@@ -11,6 +11,6 @@
 * https://github.com/rtyley/bfg-repo-cleaner
 * Used to clean a repo of any unwanted files in history (but always consider any sensitive data pushed to a public repo as leaked, hence deactivate things like API keys asap)
 * Usage guide:
-  * `java -jar ~/bfg.jar --delete-files` [FILE_NAME]
+  * `bfg --delete-files` [FILE_NAME]
   * `git reflog expire --expire=now --all && git gc --prune=now --aggressive`
   * `git push [REMOTE_NAME] --force`
