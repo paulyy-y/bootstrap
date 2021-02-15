@@ -1,3 +1,5 @@
+#!/bin/bash
+
 mkdir ~/bootstrap/
 
 # Git-secrets
