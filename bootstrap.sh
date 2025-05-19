@@ -9,6 +9,18 @@ fi
 # Exit on any error
 set -e
 
+# Detect shell configuration file
+detect_rc_file() {
+    if [ -n "$ZSH_VERSION" ] || [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        echo "$HOME/.zshrc"
+    else
+        echo "$HOME/.bashrc"
+    fi
+}
+
+RC_FILE=$(detect_rc_file)
+echo "Detected shell configuration file: $RC_FILE"
+
 # Function to handle cleanup
 cleanup() {
     local exit_code=$?
@@ -62,12 +74,16 @@ if [ ! -f ~/bootstrap/bfg.jar ]; then
 fi
 
 # Add BFG alias if not already present
-if ! grep -q "alias bfg='java -jar ~/bootstrap/bfg.jar'" ~/.bashrc; then
-    echo "Adding BFG alias to .bashrc..."
-    echo "alias bfg='java -jar ~/bootstrap/bfg.jar'" >> ~/.bashrc
-    source ~/.bashrc
+if ! grep -q "alias bfg='java -jar ~/bootstrap/bfg.jar'" "$RC_FILE"; then
+    echo "Adding BFG alias to $RC_FILE..."
+    echo "alias bfg='java -jar ~/bootstrap/bfg.jar'" >> "$RC_FILE"
+    # Source the RC file if possible
+    if [ -f "$RC_FILE" ]; then
+        echo "Reloading shell configuration..."
+        source "$RC_FILE" 2>/dev/null || true
+    fi
 else
-    echo "BFG alias already exists in .bashrc"
+    echo "BFG alias already exists in $RC_FILE"
 fi
 
 sudo apt install git-filter-repo
