@@ -51,6 +51,10 @@
     {
       "before": ["<leader>", "f"],
       "commands": ["editor.action.formatDocument"]
+    },
+    {
+      "before": ["<leader>", "t"],
+      "commands": ["workbench.action.terminal.toggleTerminal"]
     }
   ],
   "vim.insertModeKeyBindingsNonRecursive": [
