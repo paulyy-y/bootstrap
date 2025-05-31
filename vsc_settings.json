@@ -1,0 +1,28 @@
+{
+  "vim.normalModeKeyBindingsNonRecursive": [
+    {
+      "before": ["<leader>", "k", "a"],
+      "commands": ["workbench.action.closeAllEditors"]
+    },
+    {
+      "before": ["<leader>", "d", "t"],
+      "commands": ["aipopup.action.modal.generate"]
+    },
+    {
+      "before": ["<leader>", "o"],
+      "commands": ["workbench.action.quickOpen"]
+    }
+  ],
+  "vim.insertModeKeyBindingsNonRecursive": [
+    {
+      "before": ["j", "j"],
+      "after": ["<Esc>"]
+    }
+  ],
+  "vim.visualModeKeyBindingsNonRecursive": [
+    {
+      "before": ["<leader>", "d", "t"],
+      "commands": ["aipopup.action.modal.generate"]
+    }
+  ]
+}

@@ -1,16 +1,35 @@
-# Paul's Boostraps
+# bootstrap
 
-### git-secrets
+A simple shell script to bootstrap your development environment on Debian-based systems. Installs essential tools, configures your shell, and sets up useful aliases and defaults.
 
-* Used to protect credentials and secrets from being accidentally pushed to a repo
-* To use, install using provided shell script and then run `git-secrets --install` (creates 3 git hooks to automate running of scan) in desired git folder
-* Can also use `git-secrets --scan` for a manual scan of credentials
+## Features
+- Installs packages like: git, git-filter-repo, git-lfs, curl, make, vim, neovim, tmux, fish, ranger, tldr, fzf, htop
+- Configures your shell to use `fish` by default
+- Sets up useful aliases and environment variables
+- Cleans up unnecessary `cdrom` entries from apt sources
 
-### BFG Repo Cleaner
+## Requirements
+- Debian-based Linux distribution (e.g., Debian, Ubuntu)
+   - Tested on Debian 12
+- `bash` shell to run the script
+- `sudo` privileges
 
-* https://github.com/rtyley/bfg-repo-cleaner
-* Used to clean a repo of any unwanted files in history (but always consider any sensitive data pushed to a public repo as leaked, hence deactivate things like API keys asap)
-* Usage guide:
-  * `bfg --delete-files` [FILE_NAME]
-  * `git reflog expire --expire=now --all && git gc --prune=now --aggressive`
-  * `git push [REMOTE_NAME] --force`
+## Usage
+```sh
+bash bootstrap.sh
+```
+
+The script will:
+1. Remove any `cdrom` entries from `/etc/apt/sources.list`
+2. Update your package lists
+3. Install the required packages
+4. Set `fish` as your default shell in your RC file
+5. Set up some handy aliases and environment variables in `fish`
+
+After running, your shell will switch to `fish` by default. You may need to restart your terminal for all changes to take effect.
+
+## Website
+[bootstrap.paulyy.com](https://bootstrap.paulyy.com)
+
+## Contributing
+Fork your own version and make your changes 😌
