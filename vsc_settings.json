@@ -1,4 +1,40 @@
 {
+  "editor.inlineSuggest.enabled": true,
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.minimap.enabled": true,
+  "editor.codeActionsOnSave": {},
+  "chat.editor.wordWrap": "on",
+
+  "files.trimTrailingWhitespace": true,
+  "files.associations": {
+    "*Makefile*": "makefile"
+  },
+
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  "git.openRepositoryInParentFolders": "always",
+  "git.confirmSync": false,
+
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.inlayHints.variableTypes": true,
+  "pylint.args": ["--disable=missing-docstring"],
+
+  "vim.leader": " ",
+  "vim.commandLineModeKeyBindings": [],
+  "vim.gdefault": true,
+  "vim.handleKeys": {
+    "<C-f>": false,
+    "<C-c>": false,
+    "<C-k>": false,
+    "<C-a>": false,
+    "<C-i>": false,
+    "<C-v>": false,
+    "<C-d>": true,
+    "<C-s>": false,
+    "<C-z>": false
+  },
   "vim.normalModeKeyBindingsNonRecursive": [
     {
       "before": ["<leader>", "k", "a"],
@@ -11,6 +47,10 @@
     {
       "before": ["<leader>", "o"],
       "commands": ["workbench.action.quickOpen"]
+    },
+    {
+      "before": ["<leader>", "f"],
+      "commands": ["editor.action.formatDocument"]
     }
   ],
   "vim.insertModeKeyBindingsNonRecursive": [
@@ -24,5 +64,42 @@
       "before": ["<leader>", "d", "t"],
       "commands": ["aipopup.action.modal.generate"]
     }
-  ]
+  ],
+
+  "cursor.cpp.disabledLanguages": ["scminput"],
+  "cursor.cpp.enablePartialAccepts": true,
+  "cursor.composer.shouldChimeAfterChatFinishes": true,
+
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[sql]": {
+    "editor.defaultFormatter": "inferrinizzard.prettier-sql-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+
+  "terminal.integrated.fontSize": 12,
+
+  "diffEditor.maxComputationTime": 0,
+  "workbench.colorTheme": "Default Dark+"
 }
