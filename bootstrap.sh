@@ -74,3 +74,4 @@ fi
 fish -c 'set -U EDITOR nvim'
 fish -c 'alias --save vim=nvim'
 fish -c 'alias --save ll="ls -la"'
+fish -c 'set -U fish_greeting ""'
