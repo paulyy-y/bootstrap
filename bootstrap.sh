@@ -61,6 +61,8 @@ sudo apt install -y \
     ranger \
     tldr \
     fzf \
+    nmap \
+    avahi-utils \
     htop
 
 # Add 'exec fish' to the end of the RC_FILE if not already present
