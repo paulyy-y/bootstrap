@@ -32,11 +32,45 @@ handle_error() {
     cleanup
 }
 
+# Function to cleanup
+cleanup() {
+    echo "Cleaning up..."
+}
+
 # Set up signal handling
 trap 'handle_interrupt' SIGINT SIGTERM
 trap 'handle_error $LINENO' ERR
 
-sudo apt install make
-sudo apt install git-filter-repo
-sudo apt install git
-sudo apt install vim
+# Remove cdrom from sources.list, if any. This is to workaround Debian default install list.
+sudo sed -i '/cdrom:/d' /etc/apt/sources.list
+
+# Update package lists first
+sudo apt update
+
+# Install required packages
+sudo apt install -y \
+    git \
+    git-filter-repo \
+    git-lfs \
+    curl \
+    make \
+    vim \
+    neovim \
+    tmux \
+    fish \
+    ranger \
+    tldr \
+    fzf \
+    htop
+
+# Add 'exec fish' to the end of the RC_FILE if not already present
+if ! grep -Fxq 'exec fish' "$RC_FILE"; then
+    echo 'exec fish' >>"$RC_FILE"
+    echo "Added 'exec fish' to $RC_FILE"
+else
+    echo "'exec fish' already present in $RC_FILE"
+fi
+
+fish -c 'set -U EDITOR nvim'
+fish -c 'alias --save vim=nvim'
+fish -c 'alias --save ll="ls -la"'
