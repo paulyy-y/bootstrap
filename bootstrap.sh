@@ -63,6 +63,7 @@ sudo apt install -y \
     fzf \
     nmap \
     avahi-utils \
+    net-tools \
     htop
 
 # Add 'exec fish' to the end of the RC_FILE if not already present
@@ -73,7 +74,7 @@ else
     echo "'exec fish' already present in $RC_FILE"
 fi
 
-fish -c 'set -U EDITOR nvim'
+fish -c 'set -Ux EDITOR nvim'
 fish -c 'alias --save vim=nvim'
 fish -c 'alias --save ll="ls -la"'
 fish -c 'set -U fish_greeting ""'
