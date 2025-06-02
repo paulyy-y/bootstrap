@@ -57,6 +57,14 @@
       "commands": ["workbench.action.terminal.toggleTerminal"]
     },
     {
+      "before": ["<leader>", "c", "a"],
+      "commands": ["composerMode.chat"]
+    },
+    {
+      "before": ["<leader>", "c", "a"],
+      "commands": ["composerMode.agent"]
+    },
+    {
       "before": ["<leader>", "k", "w"],
       "commands": ["workbench.action.closeAllEditors"]
     }
