@@ -55,6 +55,10 @@
     {
       "before": ["<leader>", "t"],
       "commands": ["workbench.action.terminal.toggleTerminal"]
+    },
+    {
+      "before": ["<leader>", "k", "w"],
+      "commands": ["workbench.action.closeAllEditors"]
     }
   ],
   "vim.insertModeKeyBindingsNonRecursive": [
