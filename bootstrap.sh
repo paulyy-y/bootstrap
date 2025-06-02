@@ -63,6 +63,8 @@ sudo apt install -y \
     fzf \
     nmap \
     avahi-utils \
+    open-iscsi \
+    nfs-common \
     net-tools \
     htop
 
