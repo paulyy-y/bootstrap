@@ -10,6 +10,7 @@ Bootstrap a fresh Debian/Ubuntu machine with common CLI tools and sensible defau
   - `EDITOR` set to `nvim` (universal var)
   - Saves aliases: `vim -> nvim`, `ll -> ls -la`
   - Removes fish greeting
+- Generates an `ed25519` SSH keypair (uses your global git email if available)
 - Sets global git default branch name to `main`
 
 Note: This does not change your login shell; it simply runs fish from your rc file.
