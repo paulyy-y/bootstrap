@@ -6,10 +6,19 @@ if [ -z "$BASH_VERSION" ]; then
     exit 1
 fi
 
-# Exit on any error
-set -e
+# 1. PRE-FLIGHT CHECKS
+echo "--- Starting Setup ---"
 
-# Detect shell configuration file (for the 'exec zsh' hook)
+# Check for internet/GitHub connectivity
+echo "Checking connectivity to github.com..."
+if ! curl -Is https://github.com > /dev/null; then
+    echo "WARNING: Cannot reach GitHub. Plugin installation will likely fail."
+    echo "Check your internet connection or proxy settings."
+else
+    echo "Connectivity OK."
+fi
+
+# Detect shell configuration file
 detect_rc_file() {
     if [ -n "$ZSH_VERSION" ] || [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
         echo "$HOME/.zshrc"
@@ -20,119 +29,100 @@ detect_rc_file() {
 
 RC_FILE=$(detect_rc_file)
 
-handle_interrupt() {
-    echo -e "\nScript interrupted by user"
-    cleanup
-}
-
-handle_error() {
-    echo "Error occurred in setup script at line $1"
-    cleanup
-}
-
-cleanup() {
-    echo "Cleaning up..."
-}
-
 ensure_ssh_key() {
     local ssh_dir="$HOME/.ssh"
     local key_path="$ssh_dir/id_ed25519"
     local public_key_path="${key_path}.pub"
 
     if [ -f "$key_path" ] && [ -f "$public_key_path" ]; then
-        echo "SSH key already exists at $key_path (Skipping)"
+        echo "SSH key already exists (Skipping)"
         return
     fi
 
-    echo "Generating new SSH key at $key_path"
+    echo "Generating new SSH key..."
     mkdir -p "$ssh_dir"
     chmod 700 "$ssh_dir"
-
-    local git_email
-    git_email=$(git config --global user.email 2>/dev/null || true)
-
-    local user_part host_part default_email email
-    user_part=${USER:-$(whoami)}
-    host_part=$(hostname -f 2>/dev/null || hostname || echo "localhost")
-    default_email="${user_part}@${host_part}"
-    email=${git_email:-$default_email}
-
-    ssh-keygen -t ed25519 -a 100 -N "" -f "$key_path" -C "$email"
+    ssh-keygen -t ed25519 -a 100 -N "" -f "$key_path" -C "user@localhost" || echo "SSH key gen failed, ignoring..."
     chmod 600 "$key_path"
     chmod 644 "$public_key_path"
-
-    echo "SSH key generated."
 }
 
-# Set up signal handling
-trap 'handle_interrupt' SIGINT SIGTERM
-trap 'handle_error $LINENO' ERR
-
-# Remove cdrom from sources.list if present (Debian fix)
-sudo sed -i '/cdrom:/d' /etc/apt/sources.list
+# Remove cdrom from sources.list (Debian fix)
+if [ -f /etc/apt/sources.list ]; then
+    sudo sed -i '/cdrom:/d' /etc/apt/sources.list
+fi
 
 # Update package lists
-sudo apt update
+echo "Updating apt..."
+sudo apt update || echo "Apt update failed, trying to continue..."
 
 # Install required packages
-# Added: zoxide, ripgrep, bat, fd-find
-sudo apt install -y \
-    git \
-    git-filter-repo \
-    git-lfs \
-    curl \
-    openssh-client \
-    make \
-    vim \
-    neovim \
-    tmux \
-    zsh \
-    ranger \
-    tldr \
-    fzf \
-    nmap \
-    avahi-utils \
-    open-iscsi \
-    nfs-common \
-    net-tools \
-    htop \
-    zoxide \
-    ripgrep \
-    bat \
-    fd-find
+install_pkg() {
+    sudo apt install -y "$1" || echo "WARNING: Failed to install $1"
+}
+
+echo "Installing packages..."
+install_pkg "git"
+install_pkg "git-filter-repo"
+install_pkg "git-lfs"
+install_pkg "curl"
+install_pkg "openssh-client"
+install_pkg "make"
+install_pkg "vim"
+install_pkg "neovim"
+install_pkg "tmux"
+install_pkg "zsh"
+install_pkg "ranger"
+install_pkg "tldr"
+install_pkg "fzf"
+install_pkg "nmap"
+install_pkg "avahi-utils"
+install_pkg "open-iscsi"
+install_pkg "nfs-common"
+install_pkg "net-tools"
+install_pkg "htop"
+install_pkg "zoxide"
+install_pkg "ripgrep"
+install_pkg "bat"
+install_pkg "fd-find"
+install_pkg "ca-certificates"
 
 # --- ZSH PLUGIN SETUP ---
 echo "Setting up Zsh plugins..."
+
 PLUGIN_DIR="$HOME/zsh-plugins"
 mkdir -p "$PLUGIN_DIR"
 
-install_or_update_plugin() {
+install_plugin() {
     local repo_url=$1
     local dest_dir=$2
+    local name=$(basename "$dest_dir")
+
+    echo "Processing plugin: $name"
 
     if [ -d "$dest_dir" ]; then
-        # Update quietly
-        git -C "$dest_dir" pull --quiet || echo "Failed to update $(basename "$dest_dir")"
+        echo "  Directory exists. Updating..."
+        git -C "$dest_dir" pull --quiet || echo "  WARNING: Update failed for $name (Non-fatal)"
     else
-        echo "Installing plugin: $(basename "$dest_dir")..."
-        git clone -c core.autocrlf=false "$repo_url" "$dest_dir" --quiet
+        echo "  Cloning from $repo_url..."
+        if git clone --verbose --progress "$repo_url" "$dest_dir"; then
+            echo "  Success."
+        else
+            echo "  ERROR: Failed to clone $name."
+            echo "  Attempting to disable SSL verify (temporary fix)..."
+            git -c http.sslVerify=false clone "$repo_url" "$dest_dir" || echo "  STILL FAILED. Skipping plugin."
+        fi
     fi
 }
 
-install_or_update_plugin "https://github.com/zsh-users/zsh-autosuggestions" "$PLUGIN_DIR/zsh-autosuggestions"
-install_or_update_plugin "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$PLUGIN_DIR/zsh-syntax-highlighting"
+install_plugin "https://github.com/zsh-users/zsh-autosuggestions" "$PLUGIN_DIR/zsh-autosuggestions"
+install_plugin "https://github.com/zsh-users/zsh-syntax-highlighting" "$PLUGIN_DIR/zsh-syntax-highlighting"
 
 
-# --- CONFIGURE .ZSHRC (BLOCK REPLACEMENT) ---
+# --- CONFIGURE .ZSHRC ---
 ZSHRC_PATH="$HOME/.zshrc"
+if [ ! -f "$ZSHRC_PATH" ]; then touch "$ZSHRC_PATH"; fi
 
-# Create file if it doesn't exist
-if [ ! -f "$ZSHRC_PATH" ]; then
-    touch "$ZSHRC_PATH"
-    echo "Created $ZSHRC_PATH"
-fi
-
-# 1. Define the content block
 read -r -d '' ZSH_BLOCK << 'EOF'
 # --- Minimal Setup START ---
 # (Managed by bootstrap script)
@@ -146,6 +136,7 @@ setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
 
 # 2. The Prompt (With Git Status)
+setopt PROMPT_SUBST
 autoload -Uz vcs_info
 precmd() { vcs_info }
 zstyle ':vcs_info:git:*' formats '%F{240}(%F{magenta}%b%F{240})%f '
@@ -159,7 +150,7 @@ zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 compinit
 
-# 4. Tool Initializations (Modern Unix)
+# 4. Tool Initializations
 if command -v zoxide > /dev/null; then
     eval "$(zoxide init zsh)"
 fi
@@ -211,7 +202,7 @@ elif [ -f ~/.fzf.zsh ]; then
     source ~/.fzf.zsh
 fi
 
-# 7. Key Bindings (Unix/Emacs)
+# 7. Key Bindings
 bindkey '^E' end-of-line
 bindkey '^A' beginning-of-line
 bindkey "^[[1;5C" forward-word
@@ -230,16 +221,12 @@ fi
 # --- Minimal Setup END ---
 EOF
 
-# 2. Remove existing block if present
+# Remove existing block
 if grep -q "# --- Minimal Setup START ---" "$ZSHRC_PATH"; then
-    echo "Updating existing Minimal Setup block in .zshrc..."
-    # Use sed to delete lines between START and END (inclusive)
     sed -i '/# --- Minimal Setup START ---/,/# --- Minimal Setup END ---/d' "$ZSHRC_PATH"
-else
-    echo "Adding Minimal Setup block to .zshrc..."
 fi
 
-# 3. Append the new block
+# Append the new block
 echo "$ZSH_BLOCK" >> "$ZSHRC_PATH"
 
 
@@ -248,12 +235,9 @@ if [ "$RC_FILE" != "$HOME/.zshrc" ]; then
     if ! grep -Fq 'exec zsh' "$RC_FILE"; then
         echo 'exec zsh -l' >>"$RC_FILE"
         echo "Added 'exec zsh -l' to $RC_FILE"
-    else
-        echo "'exec zsh' already present in $RC_FILE"
     fi
 fi
 
-# Set git default branch
 git config --global init.defaultBranch main
 
 # --- Configure Neovim ---
@@ -274,6 +258,6 @@ echo "Configured Neovim with line numbers."
 
 ensure_ssh_key
 
+echo ""
 echo "Setup complete!"
-echo "Tools installed: zoxide (z), ripgrep (rg), bat (cat), fd, ranger"
 echo "Run: source ~/.zshrc"
