@@ -267,7 +267,6 @@ fi
 # Create/update init.vim with line numbers
 cat > "$NVIM_INIT" << 'NVIMEOF'
 set number
-set relativenumber
 set numberwidth=4
 NVIMEOF
 

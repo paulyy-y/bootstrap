@@ -197,14 +197,15 @@ if (-not (Test-Path $NvimConfigDir)) {
     New-Item -ItemType Directory -Force -Path $NvimConfigDir | Out-Null
 }
 
-# Create/update init.vim with line numbers
+# Create/update init.vim with line numbers (using LF line endings)
 $NvimConfig = @"
 set number
-set relativenumber
 set numberwidth=4
 "@
 
-Set-Content -Path $NvimInit -Value $NvimConfig -Encoding UTF8
+# Convert to LF line endings and write with UTF8NoBOM
+$NvimConfigLF = $NvimConfig -replace "`r`n", "`n" -replace "`r", "`n"
+[System.IO.File]::WriteAllText($NvimInit, $NvimConfigLF, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Configured Neovim with line numbers." -ForegroundColor Green
 
 # --- 7. Git Config ---
