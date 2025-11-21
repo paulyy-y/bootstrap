@@ -68,14 +68,14 @@ ensure_ssh_key() {
 trap 'handle_interrupt' SIGINT SIGTERM
 trap 'handle_error $LINENO' ERR
 
-# Remove cdrom from sources.list, if any
+# Remove cdrom from sources.list if present (Debian fix)
 sudo sed -i '/cdrom:/d' /etc/apt/sources.list
 
-# Update package lists first
+# Update package lists
 sudo apt update
 
 # Install required packages
-# apt install is idempotent (it won't reinstall if already present)
+# Added: zoxide, ripgrep, bat, fd-find
 sudo apt install -y \
     git \
     git-filter-repo \
@@ -95,7 +95,11 @@ sudo apt install -y \
     open-iscsi \
     nfs-common \
     net-tools \
-    htop
+    htop \
+    zoxide \
+    ripgrep \
+    bat \
+    fd-find
 
 # --- ZSH PLUGIN SETUP ---
 echo "Setting up Zsh plugins..."
@@ -107,8 +111,7 @@ install_or_update_plugin() {
     local dest_dir=$2
 
     if [ -d "$dest_dir" ]; then
-        echo "Plugin exists: $(basename "$dest_dir"). Updating..."
-        # We silence the output here to keep it clean
+        # Update quietly
         git -C "$dest_dir" pull --quiet || echo "Failed to update $(basename "$dest_dir")"
     else
         echo "Installing plugin: $(basename "$dest_dir")..."
@@ -120,10 +123,21 @@ install_or_update_plugin "https://github.com/zsh-users/zsh-autosuggestions" "$PL
 install_or_update_plugin "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$PLUGIN_DIR/zsh-syntax-highlighting"
 
 
-# --- WRITE .ZSHRC (WITH CONFIRMATION) ---
-write_zshrc() {
-    cat > "$HOME/.zshrc" << 'EOF'
-# --- 1. History Settings ---
+# --- CONFIGURE .ZSHRC (BLOCK REPLACEMENT) ---
+ZSHRC_PATH="$HOME/.zshrc"
+
+# Create file if it doesn't exist
+if [ ! -f "$ZSHRC_PATH" ]; then
+    touch "$ZSHRC_PATH"
+    echo "Created $ZSHRC_PATH"
+fi
+
+# 1. Define the content block
+read -r -d '' ZSH_BLOCK << 'EOF'
+# --- Minimal Setup START ---
+# (Managed by bootstrap script)
+
+# 1. History Settings
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
@@ -131,41 +145,52 @@ setopt SHARE_HISTORY
 setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
 
-# --- 2. The Prompt (With Git Status) ---
+# 2. The Prompt (With Git Status)
 autoload -Uz vcs_info
 precmd() { vcs_info }
-
-# Format the vcs_info_msg_0_ variable
-# %b = branch, %u = unstaged changes, %c = staged changes
 zstyle ':vcs_info:git:*' formats '%F{240}(%F{magenta}%b%F{240})%f '
 zstyle ':vcs_info:*' enable git
-
-# The Prompt: user dir (git) $
 autoload -U colors && colors
 PROMPT='%F{green}%n%f %F{blue}%~%f ${vcs_info_msg_0_}$ '
 
-# --- 3. Native Tab Completion ---
+# 3. Native Tab Completion
 autoload -Uz compinit
 zstyle ':completion:*' menu select
-zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' # Case insensitive tab completion
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 compinit
 
-# --- 4. Fuzzy Find (FZF) ---
-# Try standard locations for FZF bindings
-if [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]; then
-    source /usr/share/doc/fzf/examples/key-bindings.zsh
-elif [ -f /usr/share/fzf/key-bindings.zsh ]; then
-    source /usr/share/fzf/key-bindings.zsh
-elif [ -f ~/.fzf.zsh ]; then
-    source ~/.fzf.zsh
+# 4. Tool Initializations (Modern Unix)
+if command -v zoxide > /dev/null; then
+    eval "$(zoxide init zsh)"
 fi
 
-# --- 5. Aliases & Utilities ---
+# 5. Aliases & Utilities
 export EDITOR=nvim
 alias vim=nvim
 alias ll="ls -lah --color=auto"
 alias l="ls -lh --color=auto"
-alias grep="grep --color=auto"
+
+# Handle Bat (cat replacement) quirks
+if command -v batcat > /dev/null; then
+    alias bat="batcat"
+    alias cat="batcat"
+    export BAT_THEME="OneHalfDark"
+elif command -v bat > /dev/null; then
+    alias cat="bat"
+    export BAT_THEME="OneHalfDark"
+fi
+
+# Handle Fd (find replacement) quirks
+if command -v fdfind > /dev/null; then
+    alias fd="fdfind"
+fi
+
+# Ripgrep
+if command -v rg > /dev/null; then
+    alias grep="rg"
+else
+    alias grep="grep --color=auto"
+fi
 
 # Git Aliases
 alias g="git"
@@ -174,15 +199,26 @@ alias ga="git add"
 alias gc="git commit -m"
 alias gp="git push"
 alias gl="git log --oneline --graph --decorate"
+alias gd="git diff"
+alias gco="git checkout"
 
-# --- 6. Key Bindings ---
+# 6. Fuzzy Find (FZF)
+if [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]; then
+    source /usr/share/doc/fzf/examples/key-bindings.zsh
+elif [ -f /usr/share/fzf/key-bindings.zsh ]; then
+    source /usr/share/fzf/key-bindings.zsh
+elif [ -f ~/.fzf.zsh ]; then
+    source ~/.fzf.zsh
+fi
+
+# 7. Key Bindings (Unix/Emacs)
 bindkey '^E' end-of-line
 bindkey '^A' beginning-of-line
 bindkey "^[[1;5C" forward-word
 bindkey "^[[1;5D" backward-word
 bindkey "^[[3~" delete-char
 
-# --- 7. Plugins (Autosuggest + Syntax Highlight) ---
+# 8. Plugins
 if [ -f ~/zsh-plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
     source ~/zsh-plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
     bindkey '^[[C' autosuggest-accept
@@ -191,32 +227,23 @@ fi
 if [ -f ~/zsh-plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
     source ~/zsh-plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 fi
+# --- Minimal Setup END ---
 EOF
-}
 
-# Check if .zshrc exists
-if [ -f "$HOME/.zshrc" ]; then
-    echo ""
-    echo "WARNING: A .zshrc file already exists."
-    read -p "Do you want to replace it? (Existing file will be backed up) [y/N] " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        TIMESTAMP=$(date +%s)
-        BACKUP_FILE="$HOME/.zshrc.backup.$TIMESTAMP"
-        echo "Backing up current .zshrc to $BACKUP_FILE"
-        mv "$HOME/.zshrc" "$BACKUP_FILE"
-        echo "Writing new .zshrc..."
-        write_zshrc
-    else
-        echo "Skipping .zshrc update. Your existing config is untouched."
-    fi
+# 2. Remove existing block if present
+if grep -q "# --- Minimal Setup START ---" "$ZSHRC_PATH"; then
+    echo "Updating existing Minimal Setup block in .zshrc..."
+    # Use sed to delete lines between START and END (inclusive)
+    sed -i '/# --- Minimal Setup START ---/,/# --- Minimal Setup END ---/d' "$ZSHRC_PATH"
 else
-    echo "No existing .zshrc found. Writing new configuration..."
-    write_zshrc
+    echo "Adding Minimal Setup block to .zshrc..."
 fi
 
+# 3. Append the new block
+echo "$ZSH_BLOCK" >> "$ZSHRC_PATH"
+
+
 # --- SHELL SWITCHING ---
-# Check if RC_FILE is distinct from zshrc (to avoid circular exec if user is already in Zsh)
 if [ "$RC_FILE" != "$HOME/.zshrc" ]; then
     if ! grep -Fq 'exec zsh' "$RC_FILE"; then
         echo 'exec zsh -l' >>"$RC_FILE"
@@ -232,4 +259,5 @@ git config --global init.defaultBranch main
 ensure_ssh_key
 
 echo "Setup complete!"
-echo "If you updated the config, run: source ~/.zshrc"
+echo "Tools installed: zoxide (z), ripgrep (rg), bat (cat), fd, ranger"
+echo "Run: source ~/.zshrc"

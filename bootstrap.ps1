@@ -1,21 +1,57 @@
 <#
 .SYNOPSIS
-    Windows PowerShell Bootstrap (Idempotent / Replace Mode)
-    - Runs as CURRENT USER
-    - Installs: Git, Neovim, FZF
-    - Configures: Replaces "Minimal Setup" block in Profile if it exists
-    - Adds: Unix/Emacs keybindings (Ctrl+A, D, E, K, U, W)
+    Windows PowerShell Bootstrap (Robust Version)
+    - Manual Install: LF (from GitHub)
+    - Winget Install: Git, Neovim, FZF, Ripgrep, Bat, Fd, Zoxide
+    - Configures: Smart Prompt, Unix Keybindings, Tool Aliases
 #>
 
 $ErrorActionPreference = "Stop"
 Write-Host "--- Starting Setup (User Context) ---" -ForegroundColor Cyan
 
-# --- 1. Install Tools (Winget) ---
+# --- 1. Setup User Bin Directory (For manual installs) ---
+$UserBin = "$env:USERPROFILE\bin"
+if (-not (Test-Path $UserBin)) {
+    New-Item -ItemType Directory -Force -Path $UserBin | Out-Null
+    Write-Host "Created local bin directory: $UserBin"
+}
+
+# Add to Path Permanently (User Scope) if missing
+$CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($CurrentPath -notlike "*$UserBin*") {
+    [Environment]::SetEnvironmentVariable("Path", "$CurrentPath;$UserBin", "User")
+    $env:Path += ";$UserBin"
+    Write-Host "Added $UserBin to User Path." -ForegroundColor Green
+}
+
+# --- 2. Install LF Manually (Since Winget failed) ---
+if (-not (Get-Command lf -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing LF (Manual Download)..." -ForegroundColor Yellow
+    try {
+        $lfZip = "$UserBin\lf.zip"
+        # Download latest release
+        Invoke-WebRequest -Uri "https://github.com/gokcehan/lf/releases/latest/download/lf-windows-amd64.zip" -OutFile $lfZip
+
+        # Extract
+        Expand-Archive -Path $lfZip -DestinationPath $UserBin -Force
+
+        # Cleanup
+        Remove-Item $lfZip -Force
+        Write-Host "LF Installed successfully." -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to download LF. You may need to install it manually."
+    }
+} else {
+    Write-Host "LF is already installed." -ForegroundColor Green
+}
+
+# --- 3. Install Standard Tools (Winget) ---
 function Install-Winget {
     param([string]$Id, [string]$Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         Write-Host "Installing $Name..."
         winget install --id $Id -e --source winget --accept-package-agreements --accept-source-agreements
+        # Refresh path hack
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
 }
@@ -23,8 +59,12 @@ function Install-Winget {
 Install-Winget -Id "Git.Git" -Name "git"
 Install-Winget -Id "Neovim.Neovim" -Name "nvim"
 Install-Winget -Id "junegunn.fzf" -Name "fzf"
+Install-Winget -Id "BurntSushi.ripgrep.MSVC" -Name "rg"  # Grep replacement
+Install-Winget -Id "sharkdp.bat" -Name "bat"            # Cat replacement
+Install-Winget -Id "sharkdp.fd" -Name "fd"              # Find replacement
+Install-Winget -Id "ajeetdsouza.zoxide" -Name "zoxide"  # CD replacement
 
-# --- 2. Install Modules (User Scope) ---
+# --- 4. Install Modules ---
 Write-Host "Checking Modules..." -ForegroundColor Yellow
 Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
 
@@ -36,23 +76,27 @@ foreach ($mod in $modules) {
     }
 }
 
-# --- 3. Configure Profile (Wipe & Replace) ---
+# --- 5. Configure Profile (Wipe & Replace) ---
 Write-Host "Updating Profile: $PROFILE" -ForegroundColor Yellow
 if (-not (Test-Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force | Out-Null }
 
-# Define the Config Block with Explicit Markers
 $MinimalConfig = @"
 
 # --- Minimal Setup START ---
-# (Managed by bootstrap script - Do not edit manually inside this block)
+# (Managed by bootstrap script)
 
 Import-Module PSFzf
 Import-Module PSReadLine
 
-# 1. Fuzzy Find (Ctrl+R / Ctrl+T)
+# 1. Tool Init (Zoxide / Starship if used)
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
+
+# 2. Fuzzy Find
 Set-PSFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
 
-# 2. Ghost Text & Completion
+# 3. Ghost Text & Completion
 Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle Inline
 Set-PSReadLineOption -Colors @{ "InlinePrediction" = [ConsoleColor]::DarkGray }
@@ -61,62 +105,49 @@ Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion
 Set-PSReadLineKeyHandler -Key Ctrl+LeftArrow -Function BackwardWord
 Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function NextWord
 
-# 3. Unix Keybindings (Emulation)
+# 4. Unix Keybindings
 Set-PSReadLineKeyHandler -Key Ctrl+a -Function BeginningOfLine
-# Ctrl+E: Accept suggestion if available, otherwise go to end of line
+
+# Smart Ctrl+E (Accept suggestion -> EOL)
 Set-PSReadLineKeyHandler -Key Ctrl+e -ScriptBlock {
     try {
-        `$line = `$null
-        `$cursor = `$null
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]`$line, [ref]`$cursor)
-        `$lineLengthBefore = `$line.Length
-
-        # Try to accept suggestion
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptSuggestion()
-
-        # Check if line content changed (suggestion was accepted)
-        `$newLine = `$null
-        `$newCursor = `$null
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]`$newLine, [ref]`$newCursor)
-
-        # If line didn't change, go to end of line
-        if (`$newLine.Length -eq `$lineLengthBefore) {
-            [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
-        }
+        [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
     } catch {
-        # Fallback: if error occurs, just go to end of line
         [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
     }
 }
-Set-PSReadLineKeyHandler -Key Ctrl+k -Function KillLine         # Cut to end
-Set-PSReadLineKeyHandler -Key Ctrl+u -Function BackwardKillLine # Cut to start
-Set-PSReadLineKeyHandler -Key Ctrl+w -Function BackwardKillWord # Cut word
 
-# Ctrl+D: Exit if line is empty, otherwise delete character under cursor
+Set-PSReadLineKeyHandler -Key Ctrl+k -Function KillLine
+Set-PSReadLineKeyHandler -Key Ctrl+u -Function BackwardKillLine
+Set-PSReadLineKeyHandler -Key Ctrl+w -Function BackwardKillWord
+
+# Smart Ctrl+D (EOF or Delete)
 Set-PSReadLineKeyHandler -Key Ctrl+d -ScriptBlock {
     try {
         `$line = `$null
         `$cursor = `$null
         [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]`$line, [ref]`$cursor)
-
-        if (`$line.Length -eq 0) {
-            # Line is empty, exit PowerShell
-            [Environment]::Exit(0)
-        } else {
-            # Line has content, delete character under cursor (default behavior)
-            [Microsoft.PowerShell.PSConsoleReadLine]::DeleteChar()
-        }
+        if (`$line.Length -eq 0) { [Environment]::Exit(0) }
+        else { [Microsoft.PowerShell.PSConsoleReadLine]::DeleteChar() }
     } catch {
-        # Fallback: if error occurs, just delete char
         [Microsoft.PowerShell.PSConsoleReadLine]::DeleteChar()
     }
 }
 
-# 4. Aliases
+# 5. Aliases
 Set-Alias vim nvim
 `$env:GIT_EDITOR = "nvim"
 
-# ls aliases (Unix-style)
+# Tool Mappings
+if (Get-Command bat -ErrorAction SilentlyContinue) {
+    Set-Alias cat bat
+    `$env:BAT_THEME = "OneHalfDark"
+}
+if (Get-Command lf -ErrorAction SilentlyContinue) { Set-Alias ranger lf }
+if (Get-Command rg -ErrorAction SilentlyContinue) { Set-Alias grep rg }
+
+# List aliases
 function ll { Get-ChildItem -Force }
 function l { Get-ChildItem }
 
@@ -130,10 +161,8 @@ function gl { git log --oneline --graph --decorate `$args }
 function gd { git diff `$args }
 function gb { git branch `$args }
 function gco { git checkout `$args }
-function gpl { git pull `$args }
-function gst { git stash `$args }
 
-# 5. Custom Prompt
+# 6. Custom Prompt
 function prompt {
     `$path = `$PWD.Path.Replace(`$HOME, "~")
     `$git = (git branch --show-current 2>`$null)
@@ -149,23 +178,22 @@ function prompt {
 "@
 
 $CurrentContent = Get-Content $PROFILE -Raw -ErrorAction SilentlyContinue
-
-# Regex to match content between START and END markers (Non-greedy)
 $Pattern = "(?s)# --- Minimal Setup START ---.*?# --- Minimal Setup END ---"
 
 if ($CurrentContent -match $Pattern) {
-    Write-Host "Existing configuration found. Replaced with new version." -ForegroundColor Magenta
+    Write-Host "Existing configuration found. Replaced." -ForegroundColor Magenta
     $NewContent = $CurrentContent -replace $Pattern, $MinimalConfig
     Set-Content -Path $PROFILE -Value $NewContent
 } else {
-    Write-Host "No existing configuration found. Appending to profile." -ForegroundColor Green
+    Write-Host "Appending to profile." -ForegroundColor Green
     Add-Content -Path $PROFILE -Value $MinimalConfig
 }
 
-# --- 4. Git Config ---
+# --- 6. Git Config ---
 git config --global init.defaultBranch main
 git config --global core.autocrlf input
 
 Write-Host "`n--- Success! ---" -ForegroundColor Cyan
+Write-Host "Installed: lf (Manual), rg, bat, fd, z, nvim, fzf"
 Write-Host "Please restart your Terminal."
 Read-Host "Press Enter to exit..."
