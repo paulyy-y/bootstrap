@@ -256,6 +256,23 @@ fi
 # Set git default branch
 git config --global init.defaultBranch main
 
+# --- Configure Neovim ---
+NVIM_CONFIG_DIR="$HOME/.config/nvim"
+NVIM_INIT="$NVIM_CONFIG_DIR/init.vim"
+
+if [ ! -d "$NVIM_CONFIG_DIR" ]; then
+    mkdir -p "$NVIM_CONFIG_DIR"
+fi
+
+# Create/update init.vim with line numbers
+cat > "$NVIM_INIT" << 'NVIMEOF'
+set number
+set relativenumber
+set numberwidth=4
+NVIMEOF
+
+echo "Configured Neovim with line numbers."
+
 ensure_ssh_key
 
 echo "Setup complete!"

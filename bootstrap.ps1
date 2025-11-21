@@ -189,7 +189,25 @@ if ($CurrentContent -match $Pattern) {
     Add-Content -Path $PROFILE -Value $MinimalConfig
 }
 
-# --- 6. Git Config ---
+# --- 6. Configure Neovim ---
+$NvimConfigDir = "$env:LOCALAPPDATA\nvim"
+$NvimInit = "$NvimConfigDir\init.vim"
+
+if (-not (Test-Path $NvimConfigDir)) {
+    New-Item -ItemType Directory -Force -Path $NvimConfigDir | Out-Null
+}
+
+# Create/update init.vim with line numbers
+$NvimConfig = @"
+set number
+set relativenumber
+set numberwidth=4
+"@
+
+Set-Content -Path $NvimInit -Value $NvimConfig -Encoding UTF8
+Write-Host "Configured Neovim with line numbers." -ForegroundColor Green
+
+# --- 7. Git Config ---
 git config --global init.defaultBranch main
 git config --global core.autocrlf input
 
