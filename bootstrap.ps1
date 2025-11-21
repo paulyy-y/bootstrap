@@ -167,7 +167,6 @@ function prompt {
     `$git = (git branch --show-current 2>`$null)
     if (`$git) { `$git = " [`$git]" }
 
-    Write-Host ""
     Write-Host "`$env:USERNAME" -NoNewline -ForegroundColor Green
     Write-Host " `$path" -NoNewline -ForegroundColor Blue
     Write-Host "`$git" -NoNewline -ForegroundColor Magenta
