@@ -137,6 +137,7 @@ Set-PSReadLineKeyHandler -Key Ctrl+d -ScriptBlock {
 # 5. Aliases
 Set-Alias vim nvim
 `$env:GIT_EDITOR = "nvim"
+`$env:EDITOR = "nvim"
 
 # Tool Mappings
 if (Get-Command bat -ErrorAction SilentlyContinue) {

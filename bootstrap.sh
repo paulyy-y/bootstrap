@@ -62,6 +62,7 @@ install_pkg() {
 }
 
 echo "Installing packages..."
+install_pkg "zsh"
 install_pkg "git"
 install_pkg "git-filter-repo"
 install_pkg "git-lfs"
@@ -71,7 +72,6 @@ install_pkg "make"
 install_pkg "vim"
 install_pkg "neovim"
 install_pkg "tmux"
-install_pkg "zsh"
 install_pkg "ranger"
 install_pkg "tldr"
 install_pkg "fzf"
